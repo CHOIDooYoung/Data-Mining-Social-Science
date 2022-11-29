@@ -87,7 +87,7 @@ HUFS <- leaflet(POI) %>%
 HUFS
 
 
-#Sample with Social Data
+#Sample with Social Data 01
 Bicycle.Theaft<-POI02[which(POI02$Crime_type == 'Bicycle theft'),]
 View(Bicycle.Theaft)
 
@@ -97,3 +97,15 @@ Bike.Theaf <- leaflet(Bicycle.Theaft) %>%
   setView(lng = -2.9437, lat = 53.45, zoom = 10) %>%  # Selecting targeted view points
   addMarkers(lng = ~Longitude, lat = ~Latitude, label = paste(Bicycle.Theaft$Location))
 Bike.Theaf
+
+
+#Sample with Social Data 02
+East.Africa.Protest <-POI03[which(POI03$year == '2002'),]
+View(East.Africa.Protest)
+
+##################################################
+East.Africa.Pro <- leaflet(East.Africa.Protest) %>%
+  addTiles() %>% #Select a tile
+  setView(lng = 36.914, lat = -1.538, zoom = 5) %>%  # Selecting targeted view points
+  addMarkers(lng = ~longitude, lat = ~latitude, label = paste(East.Africa.Protest$region))
+East.Africa.Pro
