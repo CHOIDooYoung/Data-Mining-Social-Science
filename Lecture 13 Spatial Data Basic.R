@@ -49,7 +49,8 @@ HUFS
 #Load POI (Point of Interest) 
 POI01 <- read_excel(file.choose()) # HUFS_POI_Sample.xlsx
 POI02 <- read.csv(file.choose()) # map.csv
-
+POI03 <- read.csv(file.choose()) # 1997-01-01-2022-12-31-Eastern_Africa
+                                 # https://acleddata.com/data-export-tool/
 # Data with Marker
 
 HUFS <- leaflet(POI01) %>%
