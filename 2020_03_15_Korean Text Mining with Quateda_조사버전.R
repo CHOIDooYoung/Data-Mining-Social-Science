@@ -1,8 +1,10 @@
 #======================================================#
 # Title: 'Korean Text Mining Updated Version           #
-# Sub-theme: "한국어 조사 제거"                        #
+# Sub-theme: "한국어 조사 제거"                            #
 # Author: "CHOI, Doo Young Wicks"                      #
 # Date: 2023-04-24                                     #
+# In cases of Korean Stopwords,                        #
+# you can download them from the repository            #   
 #======================================================#
 
 # Loading the libraries for the 'Text Mining' Process
