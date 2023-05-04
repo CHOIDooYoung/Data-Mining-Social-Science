@@ -1,10 +1,8 @@
 #======================================================#
 # Title: 'Korean Text Mining Updated Version           #
-# Sub-theme: "한국어 조사 제거"                            #
+# Sub-theme: "한국어 조사 제거"                        #
 # Author: "CHOI, Doo Young Wicks"                      #
 # Date: 2023-04-24                                     #
-# In cases of Korean Stopwords,                        #
-# you can download them from the repository            #   
 #======================================================#
 
 # Loading the libraries for the 'Text Mining' Process
@@ -53,9 +51,9 @@ library(sentometrics)
 #=============================================================================
 # 맥 환경일 때만 01 -> 아래  Create Co-occurrences Network 부분에도 활성화
 # install.packages("showtext")
-# library(showtext)
-# font_add("AppleGothic", "/System/Library/Fonts/Supplemental/AppleGothic.ttf")
-# showtext_auto()
+ library(showtext)
+ font_add("AppleGothic", "/System/Library/Fonts/Supplemental/AppleGothic.ttf")
+ showtext_auto()
 #==============================================================================
 
 # File Loading
@@ -86,12 +84,44 @@ Text.source <- SourceFile
 #====================================
 # 한국어 조사 전처리 
 #====================================
+# 주제격 조사 (Subject markers)
+particles_subject <- c("은", "는", "이", "가") 
+# 주제격 조사는 문장에서 주어를 나타냅니다.
 
-particles <- c("은", "는", "이", "가", "을", "를", "에", "와", "과", "으로", "에게", 
-               "로", "에서", "의", "인", "한")
+# 목적격 조사 (Object markers)
+particles_object <- c("을", "를") 
+# 목적격 조사는 문장에서 목적어를 나타냅니다.
 
-remove_particles_quanteda <- function(text, particles) {
-  pattern <- paste0("(?<=\\S)(", paste(particles, collapse = "|"), ")(?=\\s|$)")
+# 부사격 조사 (Adverbial markers)
+particles_adverbial <- c("에", "에서", "에서부터", "으로", "로", "으로부터", "으로서", "로서", "로써", "만큼", "처럼", "마냥", "랑", "하고", "이랑", "같이", "과", "와", "더러", "서", "보고", "인", "한", "로부터") 
+# 부사격 조사는 문장에서 부사어를 나타냅니다.
+
+# 격조사 (Case markers)
+particles_case <- c("의", "에게", "께서", "아", "야", "이시여", "이여", "에게서") 
+# 격조사는 문장에서 목적어나 수식어를 나타내며, 인칭이나 존칭을 표현할 수 있습니다.
+
+# 어미 (Endings)
+particles_endings <- c("라서", "고", "가라", "만치", "로써")
+# 어미는 문장에서 어근 뒤에 붙어 동사, 형용사의 활용을 나타냅니다.
+
+# 각 성격별 조사를 가나다 순으로 정렬합니다.
+particles_subject_sorted <- sort(particles_subject)
+particles_object_sorted <- sort(particles_object)
+particles_adverbial_sorted <- sort(particles_adverbial)
+particles_case_sorted <- sort(particles_case)
+particles_endings_sorted <- sort(particles_endings)
+
+# 정렬된 조사를 하나의 조사 사전으로 합칩니다.
+particles_dictionary <- c(particles_subject_sorted, particles_object_sorted, particles_adverbial_sorted, particles_case_sorted, particles_endings_sorted)
+
+# 결과를 출력합니다.
+print(particles_dictionary)
+
+
+# 조사를 제거
+
+remove_particles_quanteda <- function(text, particles_dictionary) {
+  pattern <- paste0("(?<=\\S)(", paste(particles_dictionary, collapse = "|"), ")(?=\\s|$)")
   tokens <- tokens(text, remove_punct = TRUE)
   tokens <- tokens_remove(tokens, pattern, valuetype = "regex")
   return(tokens)
@@ -106,8 +136,8 @@ Mining.text.corpus <- Text.source
 Mining.text.corpus <- corpus(Mining.text.corpus)
 
 
-# 부사 제거
-Mining.text.corpus <- remove_particles_quanteda(Mining.text.corpus, particles)
+# 조부사 제거
+Mining.text.corpus <- remove_particles_quanteda(Mining.text.corpus, particles_dictionary)
 print(Mining.text.corpus)
 
 
@@ -125,7 +155,7 @@ kwic(Mining.text.corpus, pattern = "대통령", valuetype = "regex")
 # mystopwords <- arabic_stopwords
 # 
 
-mystopwords <- c(Korean_Stopwords$`Korean Stowords`)
+mystopwords <- c(K_stopwords$K_Stoword2)
 
 
 # Grouping words by dictionary or equivalence class
@@ -161,8 +191,9 @@ Mining.TXT.token <- tokens_remove(Mining.TXT.token, "[a-zA-Z0-9-]+\\.[com]+",
 # # Lemmatization (Unifying Synonyms)
 # # Define your synonyms and create a custom dictionary:
 # # Define synonyms
-# synonyms.tunisie <-  c("tunisie", "tunisiens", "tunisienne","tunisien", "nationale")
-# lemma.tunisie <- rep("tunisie", length(synonyms.tunisie))
+
+synonyms.president <-  c("대통령", "대통령실", "윤석열")
+lemma.president <- rep("대통령", length(synonyms.president))
 # 
 # synonyms.produit <-  c("produit", "produits", "production")
 # lemma.produit <- rep("produit", length(synonyms.produit))
@@ -171,10 +202,8 @@ Mining.TXT.token <- tokens_remove(Mining.TXT.token, "[a-zA-Z0-9-]+\\.[com]+",
 # lemma.agricole <- rep("agricole", length(synonyms.agricole))
 # 
 # 
-# 
-# 
 # # Replace synonyms in tokens
-# Mining.TXT.token <- tokens_replace(Mining.TXT.token, synonyms.tunisie, lemma.tunisie, valuetype = "fixed")
+Mining.TXT.token <- tokens_replace(Mining.TXT.token, synonyms.president, lemma.president, valuetype = "fixed")
 # Mining.TXT.token <- tokens_replace(Mining.TXT.token, synonyms.produit, lemma.produit, valuetype = "fixed")
 # Mining.TXT.token <- tokens_replace(Mining.TXT.token, synonyms.agricole, lemma.agricole, valuetype = "fixed")
 
@@ -303,14 +332,14 @@ Coocurrence.Network <- textplot_network(Mining.TXT.textplot.Network,
 
 
 #=================================================================================
-# Set the font for the graph on MacOS environment
-# 
-# Coocurrence.Network <- Coocurrence.Network +
-#   theme(plot.title = element_text(family = "AppleGothic"),
-#         axis.title = element_text(family = "AppleGothic"),
-#         axis.text = element_text(family = "AppleGothic"),
-#         legend.title = element_text(family = "AppleGothic"),
-#         legend.text = element_text(family = "AppleGothic"))
+#Set the font for the graph on MacOS environment
+
+Coocurrence.Network <- Coocurrence.Network +
+  theme(plot.title = element_text(family = "AppleGothic"),
+        axis.title = element_text(family = "AppleGothic"),
+        axis.text = element_text(family = "AppleGothic"),
+        legend.title = element_text(family = "AppleGothic"),
+        legend.text = element_text(family = "AppleGothic"))
 #================================================================================
 
 
