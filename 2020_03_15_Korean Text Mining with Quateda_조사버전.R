@@ -5,15 +5,27 @@
 # Date: 2023-04-24                                     #
 #======================================================#
 
+# This script is for conducting a text mining analysis on a specific source file. 
+# It loads the necessary libraries, conducts text cleaning and preprocessing, 
+# creates graphs of word frequencies and co-occurrences, performs sentiment analysis, 
+# and computes emotion scores.
+
+
+#======================================================
 # Loading the libraries for the 'Text Mining' Process
+#======================================================
+# Each library is loaded individually with a brief comment on its purpose. 
+# For example, the quanteda family of libraries is used for quantitative analysis of textual data. 
+# The tidyverse library is used for data manipulation and visualization.
+
+
+
 # 1) loading and writing Text or Excel files
 
 library(readtext)# A package for reading and handling text data in various formats like plain text, CSV, JSON, or XML.
 library(readxl) # A library for reading Excel files (both .xls and .xlsx formats) into R.
 library(writexl) # A package to write data to Excel files (.xlsx) without any dependencies on Java or other external libraries.
 # library(pdftools) # A library for extracting text and metadata from PDF files.
-library(xlsx)
-
 # 2) Text Cleansing
 library(textclean) # A package providing functions for cleaning and preprocessing text data.
 
@@ -31,22 +43,26 @@ library(tidyverse)
 # 5) Stopwords library
 library(stopwords)
 # 6) plot library
-library(ggplot2)
 library(igraph)
 library(ggraph)
+
 # 7) Topic Model library
 library(topicmodels)
 library(seededlda)
+
 # 8) Sampling Library
 library (rsample)
+
 # 9) Extra Fonts
 library(extrafont)
+
 # 10) Managing dates
 library(lubridate)
+
 # 11) Sentiment Analysis
 library(sentometrics)
-# 12) Table Manipulation
-
+library(scales)
+library(syuzhet)
 
 #=============================================================================
 # 맥 환경일 때만 01 -> 아래  Create Co-occurrences Network 부분에도 활성화
@@ -220,68 +236,19 @@ mystopwords2 <- Ref.Stopword
 
 
 Mining.TXT.token <- Mining.TXT.token %>% tokens_remove(mystopwords2)
+
 # document feature matrix (dfm) with the  bag-of-words
 Mining.TXT.token.dfm <- dfm(Mining.TXT.token)
 # remove the term of frequency lesser than 5 times
-Mining.TXT.token.dfm <- dfm_trim(Mining.TXT.token.dfm, min_termfreq = 5) %>%
-  dfm_weight("boolean")
+Mining.TXT.token.dfm <- dfm_trim(Mining.TXT.token.dfm, min_termfreq = 5)
 
-
-# Confirm data matrix
-Mining.TXT.token.matrix <- as.matrix (Mining.TXT.token.dfm)
-View (Mining.TXT.token.matrix)
-dim (Mining.TXT.token.matrix)
-
-# Term frequency (TF)
-term.frequency <- function(row) {
-  row / sum (row)
-}
-
-# Inverse Document Frequency (IDF)
-inverse.doc.freq <- function(col) {
-  corpus.size <- length(col)
-  doc.count <- length(which(col >0))
-  
-  log10(corpus.size / doc.count)
-}
-
-# TF-IDF Calculation
-tf.idf <- function(x, idf) {
-  x * idf
-}
-
-# First step, normalize all documents via TF.
-Mining.TXT.token.df <- apply(Mining.TXT.token.matrix, 1, term.frequency)
-dim(Mining.TXT.token.df)
-View(Mining.TXT.token.df)
-
-# Second step, Calculate IDF vector
-# for training data and for test data!
-Mining.TXT.token.idf <- apply(Mining.TXT.token.matrix, 2, inverse.doc.freq)
-str(Mining.TXT.token.idf)
-
-
-# ML training of corpus (TF-IDF)
-Mining.TXT.token.tfidf <-  apply(Mining.TXT.token.df, 2, tf.idf, idf = Mining.TXT.token.idf)
-dim(Mining.TXT.token.tfidf)
-View(Mining.TXT.token.tfidf)
-
+# Calculate TF-IDF
+Mining.TXT.token.tfidf <- dfm_tfidf(Mining.TXT.token.dfm)
 
 # convert to the matrix
 Mining.TXT.token.tfidf <- t(Mining.TXT.token.tfidf)
 dim(Mining.TXT.token.tfidf)
 View(Mining.TXT.token.tfidf)
-
-
-# check incomplete part 
-incomplete.cases <- which(!complete.cases(Mining.TXT.token.tfidf))
-Mining.TXT.token$text1[incomplete.cases]
-
-
-# minor corrections
-Mining.TXT.token.tfidf[incomplete.cases,] <- rep(0.0, ncol(Mining.TXT.token.tfidf))
-dim(Mining.TXT.token.tfidf)
-sum (which(!complete.cases (Mining.TXT.token.tfidf)))
 
 
 # Make a clean data frame using the same process as before.
@@ -294,6 +261,7 @@ Mining.TXT.token.dfm<-dfm_select(Mining.TXT.token.dfm, min_nchar=3)
 # =======================================
 # Create Frequency Graph
 # =======================================
+# This section creates a graph of the 50 most frequent words in the corpus.
 
 Mining.TXT.token.dfm.inaug <- textstat_frequency(Mining.TXT.token.dfm, n =50)
 
@@ -303,12 +271,10 @@ Mining.TXT.token.dfm.inaug$feature <- with(Mining.TXT.token.dfm.inaug, reorder(f
 
 ggplot(Mining.TXT.token.dfm.inaug, aes(x =feature, y = frequency)) +
   geom_point() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  theme(text = element_text(family = "AppleMyungjo")) +
-  update.packages(ask = FALSE)
-
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 frequency.table <- Mining.TXT.token.dfm.inaug
+
 
 # =======================================
 # Create Co-occurrences Network
@@ -326,7 +292,7 @@ Mining.TXT.textplot.Network <- fcm_select(Mining.TXT.textplot.Network, pattern =
 Coocurrence.Network <- textplot_network(Mining.TXT.textplot.Network,
                        vertex_labelsize = 2.5 * rowSums(Mining.TXT.textplot.Network)/
                        min(rowSums(Mining.TXT.textplot.Network)),
-                       min_freq = 0.95,
+                       min_freq = 0.99,
                        edge_size = 1)
 
 
@@ -353,21 +319,6 @@ print(Coocurrence.Network)
 # Create a Topic Model 
 # =======================================
 
-# Optimal topic number test
-result <- FindTopicsNumber(
-  Mining.TXT.token.dfm,
-  topics = seq(from = 2, to = 15, by = 1),
-  metrics = c("Griffiths2004", "CaoJuan2009", "Arun2010", "Deveaud2014"),
-  method = "Gibbs",
-  control = list(seed = 77),
-  mc.cores = 2L,
-  verbose = TRUE
-)
-
-FindTopicsNumber_plot(result)
-
-
-
 # Process Topic Model
 
 tmod_lda <- textmodel_lda(Mining.TXT.token.dfm, k = 4)
@@ -385,11 +336,27 @@ Topic.Model <- data.frame(terms(tmod_lda, 5))
 Topic.Model
 
 
+# # Optimal topic number test
+# result <- FindTopicsNumber(
+#   Mining.TXT.token.dfm,
+#   topics = seq(from = 2, to = 15, by = 1),
+#   metrics = c("Griffiths2004", "CaoJuan2009", "Arun2010", "Deveaud2014"),
+#   method = "Gibbs",
+#   control = list(seed = 77),
+#   mc.cores = 2L,
+#   verbose = TRUE
+# )
+# 
+# FindTopicsNumber_plot(result)
+
 
 
 #=====================================
-# word cloud
+# Word cloud
 #=====================================
+# This section creates a word cloud, which is a visual representation of word frequency. 
+
+
 set.seed(100)
 textplot_wordcloud(Mining.TXT.token.dfm, min_count = 10,
                    color = c('red', 'pink', 'green', 'purple', 'orange', 'blue'))
@@ -398,10 +365,13 @@ textplot_wordcloud(Mining.TXT.token.dfm, min_count = 10,
 
 
 # =======================================
-# New Sentiment Analysis (easier)
+# New Sentiment Analysis
 # =======================================
+# This section performs a sentiment analysis, which is the use of natural language processing to identify 
+# and extract subjective information from source materials.
+
 #14) Quanteda Sentiment library
-# remotes::install_github("quanteda/quanteda.sentiment")
+#remotes::install_github("quanteda/quanteda.sentiment")
 library(quanteda.sentiment)
 #15) Time Series data
 library(zoo)
@@ -438,66 +408,64 @@ Sentiment.com
 
 Sentiment.com <- cbind.data.frame (Sentiment.date, Sentiment.com)
 Sentiment.com
-# Convert to the time series data 
+
+names(Sentiment.com)
 
 
-plot(Sentiment.com$date, Sentiment.com$sentiment, type = "l")
+# Plot the Time series
+# Plot the time series 1
 
-#=====================================
-# Old Sentiment Analysis (complicate)
-#=====================================
+ggplot(Sentiment.com, aes(x = date, y = sentiment)) +
+  geom_line() +
+  labs(x = "Date", y = "Sentiment")  # Format x-axis labels as dates
 
 
-# Rename column name
-# DF <- rename(DF,c("newname"="oldname"))
-Text.source.sentiment <- rename(Text.source,c("texts"="text"))
-# Create the id with the matching number of the sample
-id <-  random_id(203, 2)
-Text.source.sentiment <- cbind(Text.source.sentiment, id)
-
-# Drop column
-#Text.source.sentiment <- subset(Text.source.sentiment, select = -c(url, title))
-# Make it to the data frame
-# construct a object with sentiment measures
-corpus <- sento_corpus(corpusdf = Text.source.sentiment)
-
-class(corpus)
-
-# list of lexicons:  "HENRY_en", "GI_en", "LM_en"
-corpusSample <- corpus_sample(corpus)
-l <- sento_lexicons(list_lexicons[("LM_en")], list_valence_shifters[["en"]])
-ctr <- ctr_agg(howTime = c("equal_weight", "linear"), by = "day", lag = 2)
-sentomeasures <- sento_measures(corpusSample, l, ctr)
-
-#=====================================
-# plot sentiment measures
-#=====================================
-
-plot(sentomeasures, group = "lexicons")
-View(sentomeasures)
-Article.sentiment <-data.frame(sentomeasures$sentiment)
-Article.sentiment[is.na(sentomeasures$sentiment)] <- 0
-mean(Article.sentiment$LM_en..dummyFeature)
+# Plot the time series 2
+ggplot(Sentiment.com, aes(x = date, y = sentiment, color = sentiment >= 0)) +
+  geom_line() +
+  labs(x = "Date", y = "Sentiment") +
+  scale_color_manual(values = c("blue", "red"), labels = c("Negative", "Positive"),
+                     guide = guide_legend(title = "Sentiment"))
 
 
 
-#=====================================
+# # Convert the date column to month format
+# data <- Sentiment.com %>%
+#   mutate(month = floor_date(date, "month"))
+# 
+# # Calculate monthly averages
+# monthly_averages <- data %>%
+#   group_by(month) %>%
+#   summarise(average_sentiment = mean(sentiment))
+# 
+# # View the monthly averages
+# print(monthly_averages)
+# 
+
 # Emotional Measures
 #=====================================
+# This section calculates emotion scores for the text data using a bag-of-words approach.
 # A bag-of-words approach for computing emotions in text data using the lexicon compiled by Araque, Gatti, Staiano, and Guerini (2018).
 
+mycorpus <- quanteda::corpus(Mining.text.corpus)
 
+# Extract the texts from the corpus
+mytexts <- as.character(mycorpus)
 
-library(transforEmotion)
+# Get the NRC sentiment of the texts using syuzhet
+nrc_sentiment <- get_nrc_sentiment(mytexts)
 
-Emotion <- emoxicon_scores(text = Text.source$text)
+# Summarize the results
+summary <- colSums(nrc_sentiment)
 
-# Plot
+# Convert to data frame for better viewing
+df <- as.data.frame(summary)
+df <- tibble::rownames_to_column(df, "emotion")
+colnames(df) <- c("emotion", "count")
 
-barplot(
-  sort(colSums(prop.table(Emotion[, 3:10]))), 
-  horiz = TRUE, 
-  cex.names = 0.7, 
-  las = 1, 
-  main = "Emotions in Sample text", xlab="Percentage"
-)
+# Create a bar chart
+ggplot(df, aes(x = emotion, y = count)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Emotion", y = "Count", title = "Emotion Counts in Text Data")
